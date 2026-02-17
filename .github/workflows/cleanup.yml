@@ -1,0 +1,31 @@
+name: publish
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write  # required to push
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace history with a single root commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          git fetch --no-tags origin main
+          # Author/committer for the synthetic commit
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Build a new ROOT commit whose tree equals origin/main
+          TREE=$(git rev-parse origin/main^{tree})
+          NEW_COMMIT=$(printf "publish pdfs" | git commit-tree "$TREE")
+          # Update local ref and force-push to main
+          git update-ref refs/heads/main "$NEW_COMMIT"
+          git push --force "https://${GH_TOKEN}@github.com/${{ github.repository }}.git" refs/heads/main:main
